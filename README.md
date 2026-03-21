@@ -1,6 +1,6 @@
 # GTC (Go-to-China) Agent
 
-GTC (Go-to-China) Agent is a WhatsApp AI agent that helps hardware founders navigate the Chinese manufacturing ecosystem, from pre-trip prep to factory sourcing to production management.
+GTC (Go-to-China) Agent is an AI agent available on web and WhatsApp that helps hardware founders navigate the Chinese manufacturing ecosystem, from pre-trip prep to factory sourcing to production management.
 
 Hardware founders visiting Shenzhen face a fragmented, overwhelming landscape: critical knowledge is buried across outdated guides, gated WeChat groups, and personal networks. No tool actually acts for them. GTC Agent changes that. It's not a chatbot that gives advice, it's an agent that executes multi-step workflows on your behalf:
 
