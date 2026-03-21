@@ -7,6 +7,7 @@ import {
   KEY_LOCATIONS,
   SOURCING_PLATFORMS,
 } from "@/data/knowledge-base";
+import { extractKnowledge, saveKnowledge } from "@/lib/knowledge-store";
 
 const SYSTEM_PROMPT = `You are GTC Agent — an action-first AI agent for hardware founders navigating prototype-to-production in Shenzhen, China.
 
@@ -48,6 +49,15 @@ export async function POST(req: Request) {
     messages: modelMessages,
     tools,
     stopWhen: stepCountIs(10),
+    async onFinish({ text }) {
+      // Extract anonymous manufacturing knowledge (no personal data)
+      if (text) {
+        const entries = extractKnowledge(text);
+        if (entries.length > 0) {
+          await saveKnowledge(entries);
+        }
+      }
+    },
   });
   return result.toUIMessageStreamResponse();
 }
