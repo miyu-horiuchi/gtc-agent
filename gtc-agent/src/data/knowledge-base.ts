@@ -112,13 +112,43 @@ export const CATEGORIES = [
   "injection-molding", "assembly", "packaging", "logistics",
 ] as const;
 
-export function searchFactories(query: string): Factory[] {
+/**
+ * Weighted search scoring for factories.
+ * Considers exact matches, partial token matches, and category relevance.
+ */
+function scoreFactory(factory: Factory, query: string): number {
   const q = query.toLowerCase();
-  return FACTORIES.filter(f =>
-    f.name.toLowerCase().includes(q) ||
-    f.category.toLowerCase().includes(q) ||
-    (f.notes && f.notes.toLowerCase().includes(q))
-  );
+  const tokens = q.split(/[\s\-_,]+/).filter(Boolean);
+  const name = factory.name.toLowerCase();
+  const category = factory.category.toLowerCase();
+  const notes = (factory.notes || "").toLowerCase();
+
+  let score = 0;
+
+  // Exact full-query match in name (highest weight)
+  if (name.includes(q)) score += 10;
+  // Exact full-query match in category
+  if (category.includes(q)) score += 8;
+  // Exact full-query match in notes
+  if (notes.includes(q)) score += 4;
+
+  // Token-level partial matching
+  for (const token of tokens) {
+    if (token.length < 2) continue;
+    if (name.includes(token)) score += 3;
+    if (category.includes(token)) score += 5; // category relevance weighted higher per-token
+    if (notes.includes(token)) score += 2;
+  }
+
+  return score;
+}
+
+export function searchFactories(query: string): Factory[] {
+  const scored = FACTORIES.map(f => ({ factory: f, score: scoreFactory(f, query) }));
+  return scored
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(s => s.factory);
 }
 
 export function getFactoriesByCategory(category: string): Factory[] {

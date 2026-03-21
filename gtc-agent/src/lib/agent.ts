@@ -1,6 +1,7 @@
 // GTC Agent — Vercel AI SDK v6 with Google Gemini
+// Non-streaming endpoint used by WhatsApp / OpenClaw webhook
 
-import { ToolLoopAgent, stepCountIs } from "ai";
+import { generateText, stepCountIs } from "ai";
 import { google } from "@ai-sdk/google";
 import {
   FACTORIES,
@@ -40,13 +41,6 @@ When a user shares a BOM → immediately call parse_bom
 - Platforms: ${SOURCING_PLATFORMS.map((p) => p.name).join(", ")}
 `;
 
-const agent = new ToolLoopAgent({
-  model: google("gemini-2.5-flash"),
-  instructions: SYSTEM_PROMPT,
-  tools,
-  stopWhen: stepCountIs(10),
-});
-
 // In-memory conversation history (per user/phone)
 const conversations = new Map<
   string,
@@ -68,7 +62,13 @@ export async function chat(
     { role: "user" as const, content: userMessage },
   ];
 
-  const result = await agent.generate({ messages });
+  const result = await generateText({
+    model: google("gemini-2.5-flash"),
+    system: SYSTEM_PROMPT,
+    messages,
+    tools,
+    stopWhen: stepCountIs(10),
+  });
 
   const assistantMessage =
     result.text || "Sorry, I couldn't process that. Try again.";

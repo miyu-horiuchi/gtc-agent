@@ -11,6 +11,23 @@ import {
   SOURCING_PLATFORMS,
   KEY_LOCATIONS,
 } from "@/data/knowledge-base";
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+const USER_TIPS_PATH = join(process.cwd(), "src/data/user-tips.json");
+
+function readUserTips(): Array<{ tip: string; category: string; timestamp: string }> {
+  try {
+    const raw = readFileSync(USER_TIPS_PATH, "utf-8");
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+function writeUserTips(tips: Array<{ tip: string; category: string; timestamp: string }>) {
+  writeFileSync(USER_TIPS_PATH, JSON.stringify(tips, null, 2) + "\n", "utf-8");
+}
 
 export const tools = {
   search_suppliers: tool({
@@ -50,6 +67,250 @@ export const tools = {
     },
   }),
 
+  search_alibaba: tool({
+    description:
+      "Search Alibaba for suppliers by keyword. Use when the local verified database doesn't have results or when the user specifically wants Alibaba suppliers.",
+    inputSchema: z.object({
+      query: z.string().describe("Search query for Alibaba, e.g. 'stepper motor', 'smart ring manufacturer'"),
+    }),
+    execute: async ({ query }) => {
+      const searchUrl = `https://www.alibaba.com/trade/search?SearchText=${encodeURIComponent(query)}`;
+      try {
+        const res = await fetch(searchUrl, {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            Accept: "text/html,application/xhtml+xml",
+          },
+          signal: AbortSignal.timeout(10000),
+        });
+
+        if (!res.ok) {
+          return {
+            success: false,
+            search_url: searchUrl,
+            message: `Alibaba returned status ${res.status}. Open the link manually.`,
+            tip: "You can also try 1688.com for better domestic prices.",
+          };
+        }
+
+        const html = await res.text();
+
+        // Extract supplier names and product titles from the page
+        const titleMatches = html.match(/<a[^>]*class="[^"]*title[^"]*"[^>]*>([^<]+)<\/a>/gi) || [];
+        const supplierMatches = html.match(/company[Nn]ame['":\s]+['"]?([^'"<,]+)/g) || [];
+
+        const titles = titleMatches
+          .map((m) => m.replace(/<[^>]+>/g, "").trim())
+          .filter(Boolean)
+          .slice(0, 8);
+
+        const suppliers = supplierMatches
+          .map((m) => m.replace(/company[Nn]ame['":\s]+['"]?/, "").trim())
+          .filter(Boolean)
+          .slice(0, 8);
+
+        if (titles.length === 0 && suppliers.length === 0) {
+          return {
+            success: true,
+            search_url: searchUrl,
+            message: `Search page loaded but couldn't parse results automatically. Visit the link to browse.`,
+            query,
+            tip: "Alibaba often requires interaction to show results. Open the search URL directly.",
+          };
+        }
+
+        return {
+          success: true,
+          search_url: searchUrl,
+          query,
+          results_preview: titles.map((title, i) => ({
+            title,
+            supplier: suppliers[i] || "See listing",
+          })),
+          total_previewed: titles.length,
+          tip: "Contact at least 3 suppliers. Ask for samples and MOQ before committing. Verify with a video call.",
+        };
+      } catch (error) {
+        return {
+          success: false,
+          search_url: searchUrl,
+          message: `Could not fetch Alibaba (${error instanceof Error ? error.message : "unknown error"}). Open the link manually.`,
+          tip: "You can also try 1688.com or Made-in-China.com as alternatives.",
+        };
+      }
+    },
+  }),
+
+  web_search: tool({
+    description:
+      "Search the web for supplier info, manufacturing guides, or Shenzhen-related topics. Use when the user needs information beyond the local knowledge base.",
+    inputSchema: z.object({
+      query: z.string().describe("Search query"),
+    }),
+    execute: async ({ query }) => {
+      // Use DuckDuckGo HTML endpoint for a quick web search
+      const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+      try {
+        const res = await fetch(searchUrl, {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            Accept: "text/html",
+          },
+          signal: AbortSignal.timeout(10000),
+        });
+
+        if (!res.ok) {
+          return {
+            success: false,
+            query,
+            message: `Search failed with status ${res.status}.`,
+          };
+        }
+
+        const html = await res.text();
+
+        // Extract result snippets from DuckDuckGo HTML results
+        const resultBlocks = html.match(/<a[^>]*class="result__a"[^>]*>([^<]+)<\/a>/gi) || [];
+        const snippetBlocks = html.match(/<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi) || [];
+        const urlBlocks = html.match(/<a[^>]*class="result__url"[^>]*>([^<]+)<\/a>/gi) || [];
+
+        const strip = (s: string) => s.replace(/<[^>]+>/g, "").trim();
+
+        const results = resultBlocks.slice(0, 6).map((title, i) => ({
+          title: strip(title),
+          snippet: snippetBlocks[i] ? strip(snippetBlocks[i]) : "",
+          url: urlBlocks[i] ? strip(urlBlocks[i]) : "",
+        }));
+
+        if (results.length === 0) {
+          return {
+            success: true,
+            query,
+            message: "Search returned no parseable results. Try a more specific query.",
+            fallback_url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+          };
+        }
+
+        return {
+          success: true,
+          query,
+          results,
+          total_results: results.length,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          query,
+          message: `Search failed: ${error instanceof Error ? error.message : "unknown error"}`,
+          fallback_url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+        };
+      }
+    },
+  }),
+
+  extract_x_post: tool({
+    description: "Extract and analyze content from an X/Twitter post URL for manufacturing insights.",
+    inputSchema: z.object({
+      url: z.string().describe("X/Twitter post URL"),
+    }),
+    execute: async ({ url }) => {
+      // Normalize URL to use fixupx.com which returns parseable open-graph content
+      const fetchUrl = url
+        .replace("twitter.com", "fxtwitter.com")
+        .replace("x.com", "fxtwitter.com");
+
+      try {
+        const res = await fetch(fetchUrl, {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+            Accept: "text/html",
+          },
+          redirect: "follow",
+          signal: AbortSignal.timeout(10000),
+        });
+
+        if (!res.ok) {
+          return {
+            url,
+            status: "fetch_failed",
+            http_status: res.status,
+            note: "Could not fetch the post. The AI model will analyze based on the URL pattern.",
+            tip: "Share X posts about factory visits, product teardowns, or manufacturing tips for best results.",
+          };
+        }
+
+        const html = await res.text();
+
+        // Extract open graph metadata
+        const ogTitle = html.match(/<meta[^>]*property="og:title"[^>]*content="([^"]*)"/) || [];
+        const ogDesc =
+          html.match(/<meta[^>]*property="og:description"[^>]*content="([^"]*)"/) || [];
+        const ogImage =
+          html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]*)"/) || [];
+
+        const title = ogTitle[1] || "";
+        const description = ogDesc[1] || "";
+        const image = ogImage[1] || "";
+
+        if (!title && !description) {
+          return {
+            url,
+            status: "no_content_extracted",
+            note: "Page loaded but no content could be extracted. The AI model will analyze based on context.",
+            tip: "Share X posts about factory visits, product teardowns, or manufacturing tips for best results.",
+          };
+        }
+
+        return {
+          url,
+          status: "extracted",
+          title,
+          description,
+          image: image || undefined,
+          tip: "Share X posts about factory visits, product teardowns, or manufacturing tips for best results.",
+        };
+      } catch (error) {
+        return {
+          url,
+          status: "error",
+          message: `Fetch error: ${error instanceof Error ? error.message : "unknown"}`,
+          note: "The AI model will analyze based on the URL pattern and context.",
+          tip: "Share X posts about factory visits, product teardowns, or manufacturing tips for best results.",
+        };
+      }
+    },
+  }),
+
+  save_tip: tool({
+    description:
+      "Save a user-contributed tip about Shenzhen manufacturing, sourcing, or travel to the community tips database.",
+    inputSchema: z.object({
+      tip: z.string().describe("The tip content to save"),
+      category: z
+        .enum(["pre-trip", "logistics", "manufacturing", "sourcing", "culture", "tools"])
+        .describe("Category for the tip"),
+    }),
+    execute: async ({ tip, category }) => {
+      const tips = readUserTips();
+      const entry = {
+        tip,
+        category,
+        timestamp: new Date().toISOString(),
+      };
+      tips.push(entry);
+      writeUserTips(tips);
+      return {
+        saved: true,
+        total_community_tips: tips.length,
+        message: `Tip saved to community database. Thank you for contributing!`,
+        entry,
+      };
+    },
+  }),
+
   draft_supplier_message: tool({
     description:
       "Draft a professional outreach message to a supplier/factory in both English and Chinese. Use when user wants to contact a factory.",
@@ -85,22 +346,22 @@ export const tools = {
       product_type: z.string().optional().describe("What the user is building (for customized recommendations)"),
       experience_level: z.enum(["first-time", "experienced"]).optional().describe("User's experience with Shenzhen"),
     }),
-    execute: async ({ type, product_type, experience_level }) => {
-      let items: string[] = [];
+    execute: async ({ type, product_type }) => {
+      const items: string[] = [];
       if (type === "pre-trip" || type === "full") {
-        items.push(...PRE_TRIP_CHECKLIST.map((t) => `☐ ${t.content}`));
+        items.push(...PRE_TRIP_CHECKLIST.map((t) => `\u2610 ${t.content}`));
       }
       if (type === "manufacturing" || type === "full") {
-        items.push(...MANUFACTURING_TIPS.map((t) => `☐ ${t.content}`));
+        items.push(...MANUFACTURING_TIPS.map((t) => `\u2610 ${t.content}`));
       }
       if (type === "sourcing" || type === "full") {
         items.push(
-          ...SOURCING_PLATFORMS.map((p) => `☐ Check ${p.name} (${p.url}) — ${p.description}`)
+          ...SOURCING_PLATFORMS.map((p) => `\u2610 Check ${p.name} (${p.url}) — ${p.description}`)
         );
       }
       if (product_type) {
-        items.push(`☐ Search for ${product_type} suppliers on Alibaba and 1688`);
-        items.push(`☐ Get DFM feedback from at least 3 factories for ${product_type}`);
+        items.push(`\u2610 Search for ${product_type} suppliers on Alibaba and 1688`);
+        items.push(`\u2610 Get DFM feedback from at least 3 factories for ${product_type}`);
       }
       return {
         checklist: items,
@@ -174,7 +435,7 @@ export const tools = {
         day: 1,
         title: "Arrival + Orientation",
         activities: [
-          "Arrive via HK → Shenzhen high-speed rail (Futian station)",
+          "Arrive via HK -> Shenzhen high-speed rail (Futian station)",
           "Set up Alipay/WeChat Pay at hotel",
           "Visit Huaqiangbei for orientation (SEG Plaza, Huaqiang Electronics World)",
           "Evening: explore Huaqiangbei night market",
@@ -231,11 +492,11 @@ export const tools = {
         found: true,
         factories: results,
         verification_checklist: [
-          "☐ Request business license (营业执照)",
-          "☐ Ask for recent client references",
-          "☐ Request factory tour / video call",
-          "☐ Get sample before bulk order",
-          "☐ Verify export license if needed",
+          "\u2610 Request business license (营业执照)",
+          "\u2610 Ask for recent client references",
+          "\u2610 Request factory tour / video call",
+          "\u2610 Get sample before bulk order",
+          "\u2610 Verify export license if needed",
         ],
       };
     },
@@ -293,7 +554,7 @@ export const tools = {
         { stage: "PVT", units: "50-500", duration: "4-8 weeks", cost: "High", description: "Production Validation Test — production line trial run" },
         { stage: "MP", units: `${target_quantity}+`, duration: "Ongoing", cost: "Per-unit optimized", description: "Mass Production — full-scale manufacturing" },
       ];
-      const stageIndex = { idea: 0, prototype: 0, evt: 1, dvt: 2, pvt: 3, production: 4 };
+      const stageIndex: Record<string, number> = { idea: 0, prototype: 0, evt: 1, dvt: 2, pvt: 3, production: 4 };
       const remaining = stages.slice(stageIndex[current_stage]);
       return {
         product: product_type,
@@ -334,25 +595,10 @@ export const tools = {
         readiness_score: `${score}%`,
         status: score >= 80 ? "Ready to go!" : score >= 60 ? "Almost ready" : "More prep needed",
         checklist: items,
-        missing: items.filter((i) => !i.ready).map((i) => `⚠️ ${i.item} (${i.priority} priority)`),
+        missing: items.filter((i) => !i.ready).map((i) => `Warning: ${i.item} (${i.priority} priority)`),
         first_timer_tips: first_time
           ? PRE_TRIP_CHECKLIST.slice(0, 5).map((t) => t.content)
           : undefined,
-      };
-    },
-  }),
-
-  extract_x_post: tool({
-    description: "Extract and analyze content from an X/Twitter post URL for manufacturing insights.",
-    inputSchema: z.object({
-      url: z.string().describe("X/Twitter post URL"),
-    }),
-    execute: async ({ url }) => {
-      return {
-        url,
-        status: "extraction_requested",
-        note: "The AI model will analyze the URL content and extract relevant manufacturing/hardware insights.",
-        tip: "Share X posts about factory visits, product teardowns, or manufacturing tips for best results.",
       };
     },
   }),
