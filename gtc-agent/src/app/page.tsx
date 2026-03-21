@@ -163,9 +163,10 @@ const SUGGESTIONS = [
 ];
 
 export default function Home() {
-  const { messages, sendMessage, status } = useChat();
+  const { messages, sendMessage, status, setMessages } = useChat();
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const hasMessages = messages.length > 0;
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -186,9 +187,19 @@ export default function Home() {
     <div className="flex flex-col h-dvh">
       {/* Header */}
       <header className="shrink-0 px-6 sm:px-10 py-4 flex items-center justify-between border-b border-[#d8cfc4]">
-        <h1 className="text-[11px] tracking-[0.25em] uppercase text-[#1a1a1a] font-normal">
-          GTC Agent
-        </h1>
+        <div className="flex items-center gap-4">
+          {hasMessages && (
+            <button
+              onClick={() => setMessages([])}
+              className="text-[10px] tracking-[0.15em] uppercase text-[#b0a494] hover:text-[#1a1a1a] transition-colors"
+            >
+              ← Back
+            </button>
+          )}
+          <h1 className="text-[11px] tracking-[0.25em] uppercase text-[#1a1a1a] font-normal">
+            GTC Agent
+          </h1>
+        </div>
         <div className="flex items-center gap-2">
           <div className={`h-1.5 w-1.5 rounded-full ${isStreaming ? "bg-[#b0a494] animate-pulse" : "bg-[#1a1a1a]"}`} />
           <span className="text-[10px] tracking-[0.1em] text-[#b0a494] uppercase">
