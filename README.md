@@ -1,6 +1,6 @@
-# GTC Agent
+# GTC (Go-to-China) Agent
 
-A collection of AI-powered tools for hardware founders navigating the Shenzhen manufacturing ecosystem.
+AI-powered tools for hardware founders navigating the Chinese manufacturing ecosystem.
 
 ## Projects
 
