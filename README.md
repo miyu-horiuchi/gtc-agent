@@ -12,7 +12,7 @@ The agent reasons about each founder's experience level, project type, and journ
 
 **Core features:**
 - Pre-trip checklist generation (VPN, eSIM, WeChat, Alipay, transit)
-- Vetted factory and supplier lookups by category (25+ verified factories)
+- Vetted factory and supplier lookups by category (1000+ verified factories)
 - Bilingual message drafting (English + Chinese)
 - Real-time component search via LCSC API (live pricing, stock, datasheets)
 - 1688.com supplier search (China's domestic wholesale, 30-60% cheaper than Alibaba)
