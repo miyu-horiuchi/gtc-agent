@@ -246,7 +246,7 @@ export const TOOL_DECLARATIONS = [
   },
   {
     name: "deepseek_chinese_expert",
-    description: "Use DeepSeek AI (Chinese-specialized LLM) for tasks requiring deep Chinese language understanding: translating manufacturing jargon, interpreting supplier communications, analyzing Chinese-language factory listings, or generating natural Chinese outreach messages. Superior to standard translation for manufacturing/business context.",
+    description: "Your primary tool for Chinese supply chain intelligence. Use DeepSeek AI for: finding suppliers and factories, sourcing strategies, pricing benchmarks, negotiation tactics, logistics and customs guidance, quality control, translating manufacturing jargon, interpreting supplier communications, analyzing Chinese factory listings, and drafting natural Chinese outreach messages. ALWAYS use this for any supply chain or Chinese manufacturing question — it knows far more than Google about the Chinese manufacturing ecosystem.",
     parameters: {
       type: "object" as const,
       properties: {

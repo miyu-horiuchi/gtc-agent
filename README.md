@@ -17,13 +17,13 @@ The agent reasons about each founder's experience level, project type, and journ
 - Real-time component search via LCSC API (live pricing, stock, datasheets)
 - 1688.com supplier search (China's domestic wholesale, 30-60% cheaper than Alibaba)
 - Baidu search for Chinese-language factory intel Google can't find
-- DeepSeek AI for manufacturing-grade Chinese translation and supplier communication analysis
+- DeepSeek AI as the primary Chinese supply chain brain: sourcing strategies, pricing benchmarks, negotiation tactics, logistics/customs guidance, supplier evaluation, and manufacturing-grade translation
 - Supplier quote comparison with decision matrices
 - Production roadmap generation (POC > EVT > DVT > PVT > MP)
 - BOM parsing with sourcing strategies
 - Trip itinerary planning
 
-**Tech stack:** Next.js 16, Google Gemini 2.5, DeepSeek (Chinese language expert), LCSC API, 1688 scraping, Baidu search, OpenClaw (WhatsApp), Tailwind CSS, Bun, Vercel
+**Tech stack:** Next.js 16, Google Gemini 2.5 (orchestration), DeepSeek (Chinese supply chain intelligence), LCSC API, 1688 scraping, Baidu search, OpenClaw (WhatsApp), Tailwind CSS, Bun, Vercel
 
 **Live:**
 - Web chat: https://gtc-agent.vercel.app
