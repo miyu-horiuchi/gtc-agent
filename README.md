@@ -4,9 +4,9 @@ AI-powered tools for hardware founders navigating the Chinese manufacturing ecos
 
 ## Projects
 
-### Shenzhen Co-Pilot
+### GTC Agent 
 
-A WhatsApp chatbot that helps hardware founders navigate the prototype-to-production journey in Shenzhen, China.
+A WhatsApp chatbot that helps hardware founders navigate the prototype-to-production journey in China.
 
 **Core features:**
 - Pre-trip checklist generation (VPN, eSIM, WeChat, Alipay, transit)
