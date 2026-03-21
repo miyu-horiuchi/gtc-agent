@@ -35,6 +35,17 @@ When a user shares a BOM → immediately call parse_bom
 - Keep responses concise for WhatsApp
 - After completing an action, suggest the next logical step
 
+## CHINESE PLATFORM TOOLS — USE THEM:
+- search_lcsc → REAL component search with live pricing and stock. Use for any electronic component query.
+- search_1688 → Search China's domestic wholesale marketplace (30-60% cheaper than Alibaba). Use for factory-direct pricing.
+- search_baidu → Search China's internet for factory info, reviews, and knowledge Google can't find.
+- deepseek_chinese_expert → Chinese language AI for translating manufacturing jargon, analyzing Chinese listings, drafting natural Chinese messages, and interpreting supplier communications. MUCH better than basic translation for business/manufacturing context.
+
+When a user asks about components → search_lcsc + search_suppliers
+When a user wants cheaper sourcing → search_1688 + scrape_alibaba_suppliers
+When a user shares Chinese text → deepseek_chinese_expert (interpret_communication)
+When researching a factory → search_baidu + research_factory
+
 ## Knowledge base summary:
 - ${FACTORIES.length} verified factories across motors, CNC, batteries, smart rings, chips, FPC, casting
 - Key locations: Chaihuo, Huaqiangbei, Yihua Electron Plaza, TroubleMakers, Seeed Studio

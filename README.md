@@ -14,13 +14,16 @@ The agent reasons about each founder's experience level, project type, and journ
 - Pre-trip checklist generation (VPN, eSIM, WeChat, Alipay, transit)
 - Vetted factory and supplier lookups by category (25+ verified factories)
 - Bilingual message drafting (English + Chinese)
+- Real-time component search via LCSC API (live pricing, stock, datasheets)
+- 1688.com supplier search (China's domestic wholesale, 30-60% cheaper than Alibaba)
+- Baidu search for Chinese-language factory intel Google can't find
+- DeepSeek AI for manufacturing-grade Chinese translation and supplier communication analysis
 - Supplier quote comparison with decision matrices
-- Production roadmap generation (POC → EVT → DVT → PVT → MP)
+- Production roadmap generation (POC > EVT > DVT > PVT > MP)
 - BOM parsing with sourcing strategies
 - Trip itinerary planning
-- Knowledge base built from real experience at Research at Scale 2026
 
-**Tech stack:** Next.js 16, Vercel AI SDK v6, Google Gemini 2.5 (via Vercel AI Gateway), OpenClaw (WhatsApp), Tailwind CSS, Bun
+**Tech stack:** Next.js 16, Google Gemini 2.5, DeepSeek (Chinese language expert), LCSC API, 1688 scraping, Baidu search, OpenClaw (WhatsApp), Tailwind CSS, Bun, Vercel
 
 **Live:**
 - Web chat: https://gtc-agent.vercel.app

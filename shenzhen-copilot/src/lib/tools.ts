@@ -208,6 +208,56 @@ export const TOOL_DECLARATIONS = [
       required: ["url"],
     },
   },
+  {
+    name: "search_lcsc",
+    description: "Search LCSC (China's largest electronic components distributor) for real components with live pricing, stock levels, and datasheets. Use when a user needs to find specific electronic components like chips, capacitors, connectors, resistors, etc.",
+    parameters: {
+      type: "object" as const,
+      properties: {
+        keyword: { type: "string", description: "Component to search for (e.g. 'USB-C connector', 'ESP32', '100uF capacitor')" },
+        max_results: { type: "number", description: "Max results to return (default 5)" },
+      },
+      required: ["keyword"],
+    },
+  },
+  {
+    name: "search_1688",
+    description: "Search 1688.com (China's domestic wholesale marketplace, better prices than Alibaba) for suppliers and products. Returns real listings with prices in CNY. Use when user wants the best factory-direct prices or domestic Chinese sourcing.",
+    parameters: {
+      type: "object" as const,
+      properties: {
+        keyword: { type: "string", description: "Product or component to search for" },
+        max_results: { type: "number", description: "Max results to return (default 5)" },
+      },
+      required: ["keyword"],
+    },
+  },
+  {
+    name: "search_baidu",
+    description: "Search Baidu (China's primary search engine) for Chinese-language information about factories, suppliers, manufacturing processes, or Shenzhen-specific knowledge. Use when you need Chinese-language results that Google wouldn't find.",
+    parameters: {
+      type: "object" as const,
+      properties: {
+        query: { type: "string", description: "Search query (can be English or Chinese)" },
+        max_results: { type: "number", description: "Max results to return (default 5)" },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "deepseek_chinese_expert",
+    description: "Use DeepSeek AI (Chinese-specialized LLM) for tasks requiring deep Chinese language understanding: translating manufacturing jargon, interpreting supplier communications, analyzing Chinese-language factory listings, or generating natural Chinese outreach messages. Superior to standard translation for manufacturing/business context.",
+    parameters: {
+      type: "object" as const,
+      properties: {
+        task: { type: "string", enum: ["translate", "draft_message", "analyze_listing", "interpret_communication", "research"], description: "Type of task" },
+        input_text: { type: "string", description: "Text to process" },
+        context: { type: "string", description: "Additional context (e.g. 'supplier negotiation', 'factory capability analysis')" },
+        target_language: { type: "string", enum: ["en", "zh"], description: "Target language for translations" },
+      },
+      required: ["task", "input_text"],
+    },
+  },
 ];
 
 // Tool execution functions
@@ -262,6 +312,18 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
 
     case "extract_x_post":
       return toolExtractXPost(args as { url: string; save_to_knowledge_base?: boolean });
+
+    case "search_lcsc":
+      return toolSearchLCSC(args.keyword as string, args.max_results as number | undefined);
+
+    case "search_1688":
+      return toolSearch1688(args.keyword as string, args.max_results as number | undefined);
+
+    case "search_baidu":
+      return toolSearchBaidu(args.query as string, args.max_results as number | undefined);
+
+    case "deepseek_chinese_expert":
+      return toolDeepSeekChinese(args as { task: string; input_text: string; context?: string; target_language?: string });
 
     default:
       return { error: `Unknown tool: ${name}` };
@@ -832,13 +894,296 @@ async function toolSendEmail(args: { to_email: string; factory_name: string; sub
     tone: "formal",
   });
 
-  // In production, this would actually send via an email API
   return {
     status: "draft_ready",
     to: args.to_email,
-    subject: args.subject || `Inquiry: ${args.product_description} — Collaboration Opportunity`,
+    subject: args.subject || `Inquiry: ${args.product_description} - Collaboration Opportunity`,
     body_english: drafted.english,
     body_chinese: drafted.chinese,
     note: "Email drafted. In production, this would send automatically via SendGrid/Resend.",
   };
+}
+
+// --- LCSC Component Search ---
+async function toolSearchLCSC(keyword: string, maxResults: number = 5) {
+  try {
+    const encodedKeyword = encodeURIComponent(keyword);
+    const apiUrl = `https://wmsc.lcsc.com/ftps/wm/product/search?keyword=${encodedKeyword}&currentPage=1&pageSize=${maxResults}&searchSource=home`;
+
+    const response = await fetch(apiUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        "Accept": "application/json",
+        "Referer": "https://www.lcsc.com/",
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        source: "lcsc",
+        keyword,
+        results: [],
+        search_url: `https://www.lcsc.com/search?q=${encodedKeyword}`,
+        error: `LCSC returned ${response.status}. Use the search URL to browse manually.`,
+      };
+    }
+
+    const data = await response.json() as {
+      result?: {
+        tipProductList?: Array<{
+          productModel?: string;
+          productCode?: string;
+          brandNameEn?: string;
+          productDescEn?: string;
+          stockNumber?: number;
+          productPriceList?: Array<{ ladder?: number; usdPrice?: number }>;
+          pdfUrl?: string;
+        }>;
+        productList?: Array<{
+          productModel?: string;
+          productCode?: string;
+          brandNameEn?: string;
+          productDescEn?: string;
+          stockNumber?: number;
+          productPriceList?: Array<{ ladder?: number; usdPrice?: number }>;
+          pdfUrl?: string;
+        }>;
+      };
+    };
+
+    const products = data.result?.productList || data.result?.tipProductList || [];
+
+    const components = products.slice(0, maxResults).map((p) => ({
+      part_number: p.productModel || "N/A",
+      lcsc_code: p.productCode || "N/A",
+      manufacturer: p.brandNameEn || "Unknown",
+      description: p.productDescEn || "No description",
+      stock: p.stockNumber || 0,
+      pricing: (p.productPriceList || []).map((price) => ({
+        quantity: price.ladder,
+        unit_price_usd: price.usdPrice,
+      })),
+      datasheet: p.pdfUrl || null,
+      url: p.productCode ? `https://www.lcsc.com/product-detail/${p.productCode}.html` : null,
+    }));
+
+    return {
+      source: "lcsc",
+      keyword,
+      found: components.length,
+      components,
+      search_url: `https://www.lcsc.com/search?q=${encodedKeyword}`,
+      tip: "LCSC is the go-to for electronic components in China. Same parent company as JLCPCB.",
+    };
+  } catch (error) {
+    const encodedKeyword = encodeURIComponent(keyword);
+    return {
+      source: "lcsc",
+      keyword,
+      results: [],
+      search_url: `https://www.lcsc.com/search?q=${encodedKeyword}`,
+      error: `Failed to fetch from LCSC: ${error instanceof Error ? error.message : "Unknown error"}`,
+    };
+  }
+}
+
+// --- 1688 Supplier Search ---
+async function toolSearch1688(keyword: string, maxResults: number = 5) {
+  try {
+    const encodedKeyword = encodeURIComponent(keyword);
+    const searchUrl = `https://s.1688.com/selloffer/offer_search.htm?keywords=${encodedKeyword}`;
+
+    const response = await fetch(searchUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        "Accept": "text/html",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        source: "1688",
+        keyword,
+        search_url: searchUrl,
+        results: [],
+        note: "1688.com requires Chinese IP or VPN for best results. Use the search URL directly.",
+        tips: [
+          "1688 is Alibaba's domestic platform with 30-60% lower prices",
+          "Most listings are in Chinese, use DeepSeek to analyze",
+          "MOQs are often lower than Alibaba",
+          "Payment via Alipay is standard",
+        ],
+      };
+    }
+
+    const html = await response.text();
+
+    // Extract product data from the page
+    const products: Array<{ title: string; price: string; url: string }> = [];
+    const offerRegex = /<a[^>]*href="(\/\/detail\.1688\.com\/offer\/\d+\.html)"[^>]*>([\s\S]*?)<\/a>/g;
+    let offerMatch;
+    let count = 0;
+
+    while ((offerMatch = offerRegex.exec(html)) !== null && count < maxResults) {
+      const title = (offerMatch[2] || "").replace(/<[^>]+>/g, "").trim();
+      if (title && title.length > 2) {
+        products.push({
+          title,
+          price: "See listing",
+          url: `https:${offerMatch[1]}`,
+        });
+        count++;
+      }
+    }
+
+    return {
+      source: "1688",
+      keyword,
+      found: products.length,
+      products: products.length > 0 ? products : undefined,
+      search_url: searchUrl,
+      tips: [
+        "1688 is Alibaba's domestic platform with 30-60% lower prices",
+        "Use the deepseek_chinese_expert tool to analyze Chinese listings",
+        "MOQs are often lower than international Alibaba",
+      ],
+    };
+  } catch (error) {
+    const encodedKeyword = encodeURIComponent(keyword);
+    return {
+      source: "1688",
+      keyword,
+      search_url: `https://s.1688.com/selloffer/offer_search.htm?keywords=${encodedKeyword}`,
+      results: [],
+      error: `Could not scrape 1688: ${error instanceof Error ? error.message : "Unknown error"}`,
+    };
+  }
+}
+
+// --- Baidu Search ---
+async function toolSearchBaidu(query: string, maxResults: number = 5) {
+  try {
+    const encodedQuery = encodeURIComponent(query);
+    const searchUrl = `https://www.baidu.com/s?wd=${encodedQuery}&rn=${maxResults}`;
+
+    const response = await fetch(searchUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        "Accept": "text/html",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        source: "baidu",
+        query,
+        search_url: searchUrl,
+        results: [],
+        error: `Baidu returned ${response.status}. Use the search URL directly.`,
+      };
+    }
+
+    const html = await response.text();
+
+    // Extract search results
+    const results: Array<{ title: string; snippet: string; url: string }> = [];
+    const titleRegex = /<h3[^>]*>.*?<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<\/h3>/g;
+    let titleMatch;
+    let resultCount = 0;
+
+    while ((titleMatch = titleRegex.exec(html)) !== null && resultCount < maxResults) {
+      const title = (titleMatch[2] || "").replace(/<[^>]+>/g, "").trim();
+      if (title) {
+        results.push({
+          title,
+          snippet: "View on Baidu for details",
+          url: titleMatch[1] || "",
+        });
+        resultCount++;
+      }
+    }
+
+    return {
+      source: "baidu",
+      query,
+      found: results.length,
+      results: results.length > 0 ? results : undefined,
+      search_url: searchUrl,
+      note: "Baidu results are in Chinese. Use deepseek_chinese_expert to translate or analyze.",
+      tip: "Baidu finds Chinese-only factory info and supplier reviews that Google cannot access.",
+    };
+  } catch (error) {
+    const encodedQuery = encodeURIComponent(query);
+    return {
+      source: "baidu",
+      query,
+      search_url: `https://www.baidu.com/s?wd=${encodedQuery}`,
+      results: [],
+      error: `Could not fetch Baidu: ${error instanceof Error ? error.message : "Unknown error"}`,
+    };
+  }
+}
+
+// --- DeepSeek Chinese Expert ---
+async function toolDeepSeekChinese(args: { task: string; input_text: string; context?: string; target_language?: string }) {
+  const { task, input_text, context, target_language } = args;
+
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) {
+    return {
+      error: "DEEPSEEK_API_KEY not configured. Set it in your .env file.",
+      fallback: "Use the translate_message tool for basic translation.",
+    };
+  }
+
+  const prompts: Record<string, string> = {
+    translate: `You are an expert translator specializing in Chinese manufacturing and hardware terminology. Translate to ${target_language === "zh" ? "Chinese (Simplified)" : "English"}. Preserve technical terms accurately.`,
+    draft_message: `You are a bilingual business communication expert for hardware founders and Chinese factories. Draft a professional message in both English and Chinese. The Chinese should sound natural with appropriate business etiquette. Context: ${context || "general business inquiry"}.`,
+    analyze_listing: `You are an expert at analyzing Chinese e-commerce listings (1688, Taobao, Alibaba). Extract: product details, pricing, MOQ, supplier credibility, and red flags. Respond in English but include key Chinese terms.`,
+    interpret_communication: `You are an expert at interpreting Chinese business communications in manufacturing. Explain the meaning, cultural subtext (indirect refusals, negotiation tactics), and suggest how to respond. Context: ${context || "supplier communication"}.`,
+    research: `You are a research assistant for the Chinese manufacturing ecosystem. Provide actionable insights for hardware founders. Include relevant Chinese search terms. Context: ${context || "general research"}.`,
+  };
+
+  const systemPrompt = prompts[task] || prompts.research!;
+
+  try {
+    const response = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: input_text },
+        ],
+        temperature: 0.3,
+        max_tokens: 2000,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { error: `DeepSeek API error (${response.status}): ${errorText}` };
+    }
+
+    const data = await response.json() as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+
+    return {
+      source: "deepseek",
+      task,
+      result: data.choices?.[0]?.message?.content || "No response from DeepSeek.",
+      note: "Powered by DeepSeek, optimized for Chinese manufacturing context.",
+    };
+  } catch (error) {
+    return {
+      error: `DeepSeek request failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+    };
+  }
 }
