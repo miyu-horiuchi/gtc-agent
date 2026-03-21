@@ -1,22 +1,33 @@
 # GTC (Go-to-China) Agent
 
-AI-powered tools for hardware founders navigating the Chinese manufacturing ecosystem.
+GTC (Go-to-China) Agent is a WhatsApp AI agent that helps hardware founders navigate the Chinese manufacturing ecosystem, from pre-trip prep to factory sourcing to production management.
 
-## Projects
+Hardware founders visiting Shenzhen face a fragmented, overwhelming landscape: critical knowledge is buried across outdated guides, gated WeChat groups, and personal networks. No tool actually acts for them. GTC Agent changes that. It's not a chatbot that gives advice, it's an agent that executes multi-step workflows on your behalf:
 
-### GTC Agent 
+1. **Action engine**: drafts bilingual supplier outreach messages (English + Chinese), generates personalized pre-trip checklists, parses BOMs and suggests sourcing options, and tracks production timelines with reminders
+2. **Curated knowledge base**: fine-tuned with RAG on first-hand experience from a 2-month China hardware residency, with vetted factory contacts across categories (motors, CNC, PCB, casting, batteries), sourcing platforms, and on-the-ground navigation tips. The knowledge base grows with every conversation: user tips, factory reviews, and sourcing insights are captured, verified, and folded back in, so the agent gets smarter the more founders use it.
+3. **Network connector**: matches founders to verified suppliers, makerspaces, and key ecosystem contacts based on what they're building
 
-A WhatsApp chatbot that helps hardware founders navigate the prototype-to-production journey in China.
+The agent reasons about each founder's experience level, project type, and journey phase to adapt its responses. A first-timer gets step-by-step logistics guidance, a repeat visitor gets straight to factory intros.
 
 **Core features:**
 - Pre-trip checklist generation (VPN, eSIM, WeChat, Alipay, transit)
-- Vetted factory and supplier lookups by category
+- Vetted factory and supplier lookups by category (25+ verified factories)
 - Bilingual message drafting (English + Chinese)
+- Supplier quote comparison with decision matrices
+- Production roadmap generation (POC → EVT → DVT → PVT → MP)
+- BOM parsing with sourcing strategies
+- Trip itinerary planning
 - Knowledge base built from real experience at Research at Scale 2026
 
-**Tech stack:** Next.js 16, Anthropic Claude API, Twilio (WhatsApp Business API), Tailwind CSS, Bun
+**Tech stack:** Next.js 16, Vercel AI SDK v6, Google Gemini 2.5 (via Vercel AI Gateway), OpenClaw (WhatsApp), Tailwind CSS, Bun
 
-See [`shenzhen-copilot/`](./shenzhen-copilot) for setup and usage.
+**Live:**
+- Web chat: https://gtc-agent.vercel.app
+- API: `POST https://gtc-agent.vercel.app/api/chat`
+- WhatsApp: via OpenClaw gateway
+
+See [`gtc-agent/`](./gtc-agent) for setup and usage.
 
 ## Docs
 
