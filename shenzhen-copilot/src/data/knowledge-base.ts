@@ -74,12 +74,15 @@ export const SOURCING_PLATFORMS = [
 ];
 
 export const KEY_LOCATIONS = [
-  { name: "Chaihuo Makerspace", area: "Nanshan", description: "Main makerspace, hosts workshops and events. Home base for Research at Scale residency.", address: "广东省深圳市南山区西丽街道万科云城设计公社B6区B622 柴火创客" },
-  { name: "Huaqiangbei (HQB)", area: "Futian", description: "The world's largest electronics market. Multiple buildings with component shops, dev kits, and gadgets." },
-  { name: "Yihua Electron Plaza", area: "Futian", description: "Market to find and connect with factories." },
-  { name: "TroubleMakers", area: "HQB", description: "Makerspace in Huaqiangbei area, hosts talks and events." },
-  { name: "Nantou Urban Village", area: "Nanshan", description: "Historic village with art galleries and cafes." },
-  { name: "Seeed Studio HQ", area: "Nanshan", description: "Major open-source hardware company. Offers factory tours and workshops." },
+  { name: "Chaihuo Makerspace", area: "Nanshan", description: "Main makerspace, hosts workshops and events. Home base for Research at Scale residency.", address: "广东省深圳市南山区西丽街道万科云城设计公社B6区B622 柴火创客", lat: 22.5780, lng: 113.9590 },
+  { name: "Huaqiangbei (HQB)", area: "Futian", description: "The world's largest electronics market. Multiple buildings with component shops, dev kits, and gadgets.", address: "华强北路, 福田区, 深圳", lat: 22.5469, lng: 114.0876 },
+  { name: "SEG Plaza", area: "Futian", description: "Iconic electronics market tower in Huaqiangbei. Components, dev boards, tools.", address: "深圳市福田区华强北路1002号赛格广场", lat: 22.5472, lng: 114.0853 },
+  { name: "Yihua Electron Plaza", area: "Futian", description: "Market to find and connect with factories.", address: "深圳市福田区振华路与中航路交汇处益华大厦", lat: 22.5450, lng: 114.0880 },
+  { name: "TroubleMakers", area: "HQB", description: "Makerspace in Huaqiangbei area, hosts talks and events.", address: "深圳市福田区华强北", lat: 22.5475, lng: 114.0860 },
+  { name: "Nantou Urban Village", area: "Nanshan", description: "Historic village with art galleries and cafes.", address: "深圳市南山区南头古城", lat: 22.5310, lng: 113.9260 },
+  { name: "Seeed Studio HQ", area: "Nanshan", description: "Major open-source hardware company. Offers factory tours and workshops.", address: "深圳市南山区学苑大道1001号南山智园", lat: 22.5690, lng: 113.9530 },
+  { name: "Futian Railway Station", area: "Futian", description: "High-speed rail station connecting to Hong Kong (14 min). Closest station to Huaqiangbei.", address: "深圳市福田区福田站", lat: 22.5410, lng: 114.0540 },
+  { name: "Huaqiang Electronics World", area: "Futian", description: "Multi-floor electronics wholesale market. PCB, connectors, passive components.", address: "深圳市福田区华强北路华强电子世界", lat: 22.5465, lng: 114.0870 },
 ];
 
 export const PRE_TRIP_CHECKLIST: Tip[] = [

@@ -480,15 +480,56 @@ function toolPlanItinerary(args: { arrival_date: string; departure_date: string;
   const end = new Date(departure_date);
   const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
 
-  const itinerary: { day: number; date: string; morning: string; afternoon: string; evening: string }[] = [];
+  interface ItineraryLocation {
+    name: string;
+    address?: string;
+    lat?: number;
+    lng?: number;
+    map_url?: string;
+  }
+
+  interface ItineraryDay {
+    day: number;
+    date: string;
+    morning: string;
+    afternoon: string;
+    evening: string;
+    locations: ItineraryLocation[];
+  }
+
+  const findLocation = (name: string) => KEY_LOCATIONS.find(l => l.name.toLowerCase().includes(name.toLowerCase()));
+
+  const makeMapUrl = (lat: number, lng: number, name: string) =>
+    `https://www.google.com/maps/search/?api=1&query=${lat},${lng}&query_place_id=${encodeURIComponent(name)}`;
+
+  const locationPin = (name: string): ItineraryLocation => {
+    const loc = findLocation(name);
+    if (loc && loc.lat && loc.lng) {
+      return {
+        name: loc.name,
+        address: loc.address,
+        lat: loc.lat,
+        lng: loc.lng,
+        map_url: makeMapUrl(loc.lat, loc.lng, loc.name),
+      };
+    }
+    return { name };
+  };
+
+  const itinerary: ItineraryDay[] = [];
 
   // Day 1: Arrival + setup
+  const day1Locations: ItineraryLocation[] = [locationPin("Huaqiangbei")];
+  if (arriving_from?.includes("HK")) {
+    day1Locations.unshift(locationPin("Futian Railway"));
+  }
   itinerary.push({
     day: 1,
     date: arrival_date,
-    morning: arriving_from?.includes("HK") ? "High-speed rail from HK to Futian station (30-45 min)" : "Arrive in Shenzhen, check into hotel",
+    morning: arriving_from?.includes("HK") ? "High-speed rail from HK to Futian station (14 min)" : "Arrive in Shenzhen, check into hotel",
     afternoon: "Get SIM working, test VPN, set up Alipay/WeChat Pay. Walk around your neighborhood.",
     evening: "Huaqiangbei night walk — get oriented, see the electronics markets from outside",
+    locations: day1Locations,
   });
 
   // Day 2: HQB exploration
@@ -499,32 +540,65 @@ function toolPlanItinerary(args: { arrival_date: string; departure_date: string;
       morning: "Huaqiangbei deep dive — explore SEG Plaza, Huaqiang Electronics World for components",
       afternoon: "Yihua Electron Plaza — find factories and suppliers for your specific needs",
       evening: "Review what you found, prepare outreach messages for factory visits",
+      locations: [locationPin("SEG"), locationPin("Huaqiang Electronics"), locationPin("Yihua")],
+    });
+  }
+
+  // Day 3: Makerspaces
+  if (days >= 3) {
+    itinerary.push({
+      day: 3,
+      date: new Date(start.getTime() + 2 * 86400000).toISOString().split("T")[0]!,
+      morning: "Visit Chaihuo Makerspace — workshops, networking, prototyping facilities",
+      afternoon: "Seeed Studio HQ tour — open-source hardware, factory connections",
+      evening: "Review contacts, plan factory visits for remaining days",
+      locations: [locationPin("Chaihuo"), locationPin("Seeed")],
     });
   }
 
   // Remaining days: factory visits based on goals
-  for (let i = 2; i < days && i < days; i++) {
+  for (let i = 3; i < days; i++) {
     const date = new Date(start.getTime() + i * 86400000).toISOString().split("T")[0]!;
-    const goalIndex = (i - 2) % goals.length;
+    const goalIndex = (i - 3) % goals.length;
 
     itinerary.push({
       day: i + 1,
       date,
       morning: `Factory visits for: ${goals[goalIndex]}`,
-      afternoon: `Follow-up meetings, sample reviews, negotiate terms`,
+      afternoon: "Follow-up meetings, sample reviews, negotiate terms",
       evening: i === days - 1 ? "Pack up, organize contacts and notes" : "Document the day, update your BOM/supplier spreadsheet",
+      locations: [],
     });
   }
+
+  // Build map with all pins
+  const allLocations = KEY_LOCATIONS.filter(l => l.lat && l.lng).map(l => ({
+    name: l.name,
+    area: l.area,
+    address: l.address,
+    lat: l.lat,
+    lng: l.lng,
+    map_url: makeMapUrl(l.lat!, l.lng!, l.name),
+  }));
+
+  // Generate a full map URL with all locations
+  const mapPins = KEY_LOCATIONS.filter(l => l.lat && l.lng)
+    .map(l => `${l.lat},${l.lng}`)
+    .join("/");
+  const fullMapUrl = `https://www.google.com/maps/dir/${mapPins}`;
 
   return {
     itinerary,
     total_days: days,
-    key_locations: KEY_LOCATIONS,
+    all_locations: allLocations,
+    full_map_url: fullMapUrl,
     tips: [
       "Book factory visits at least 2-3 days in advance",
       "Bring business cards — they still matter in China",
       "Take photos of EVERYTHING at factories (with permission)",
       "Get WeChat contacts of everyone you meet",
+      "Use Baidu Maps instead of Google Maps — it's more accurate in China",
+      "Each location above has a map pin — click the map_url to open in Google Maps",
     ],
   };
 }

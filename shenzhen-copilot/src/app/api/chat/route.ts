@@ -11,9 +11,9 @@ export async function POST(request: NextRequest) {
     }
 
     const userPhone = phone || "test-user";
-    const response = await chat(userPhone, message);
+    const result = await chat(userPhone, message);
 
-    return NextResponse.json({ response });
+    return NextResponse.json({ response: result.response, toolResults: result.toolResults });
   } catch (error) {
     console.error("Error in chat API:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

@@ -1,10 +1,20 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { MapEmbed } from "@/components/MapEmbed";
+
+interface Location {
+  name: string;
+  lat: number;
+  lng: number;
+  address?: string;
+  area?: string;
+}
 
 interface Message {
   role: "user" | "assistant";
   content: string;
+  locations?: Location[];
 }
 
 export default function Home() {
@@ -39,9 +49,42 @@ export default function Home() {
       });
 
       const data = await res.json();
+
+      // Extract locations from tool results if present
+      let locations: Location[] = [];
+      if (data.toolResults) {
+        for (const result of data.toolResults) {
+          // From itinerary tool
+          if (result.all_locations) {
+            locations = result.all_locations.filter((l: Location) => l.lat && l.lng);
+          }
+          // From individual itinerary days
+          if (result.itinerary) {
+            for (const day of result.itinerary) {
+              if (day.locations) {
+                for (const loc of day.locations) {
+                  if (loc.lat && loc.lng && !locations.some(l => l.name === loc.name)) {
+                    locations.push(loc);
+                  }
+                }
+              }
+            }
+          }
+          // From factory/supplier search with coordinates
+          if (result.factories || result.results) {
+            const items = result.factories || result.results || [];
+            for (const item of items) {
+              if (item.lat && item.lng) {
+                locations.push({ name: item.name || item.title, lat: item.lat, lng: item.lng, address: item.address });
+              }
+            }
+          }
+        }
+      }
+
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: data.response },
+        { role: "assistant", content: data.response, locations },
       ]);
     } catch {
       setMessages((prev) => [
@@ -68,14 +111,19 @@ export default function Home() {
             key={i}
             className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
           >
-            <div
-              className={`max-w-[80%] rounded-2xl px-4 py-3 whitespace-pre-wrap ${
-                msg.role === "user"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-800 text-gray-100"
-              }`}
-            >
-              {msg.content}
+            <div className="max-w-[80%]">
+              <div
+                className={`rounded-2xl px-4 py-3 whitespace-pre-wrap ${
+                  msg.role === "user"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-800 text-gray-100"
+                }`}
+              >
+                {msg.content}
+              </div>
+              {msg.locations && msg.locations.length > 0 && (
+                <MapEmbed locations={msg.locations} />
+              )}
             </div>
           </div>
         ))}

@@ -80,7 +80,12 @@ interface ConversationEntry {
 
 const conversations = new Map<string, ConversationEntry[]>();
 
-export async function chat(userPhone: string, userMessage: string): Promise<string> {
+export interface ChatResponse {
+  response: string;
+  toolResults: unknown[];
+}
+
+export async function chat(userPhone: string, userMessage: string): Promise<ChatResponse> {
   const history = conversations.get(userPhone) || [];
 
   const model = genAI.getGenerativeModel({
@@ -96,6 +101,9 @@ export async function chat(userPhone: string, userMessage: string): Promise<stri
   // Send user message
   let response = await chatSession.sendMessage(userMessage);
   let candidate = response.response.candidates?.[0];
+
+  // Collect all tool results for the frontend
+  const allToolResults: unknown[] = [];
 
   // Handle tool calls in a loop (agent can call multiple tools)
   let iterations = 0;
@@ -115,6 +123,11 @@ export async function chat(userPhone: string, userMessage: string): Promise<stri
     console.log(`[Agent] Executing ${toolCalls.length} tools: ${toolCalls.map(t => t.name).join(", ")}`);
 
     const results = await executeTools(toolCalls);
+
+    // Save tool results for frontend
+    for (const r of results) {
+      allToolResults.push(r.result);
+    }
 
     // Send tool results back to the model
     const functionResponses = results.map(r => ({
@@ -136,7 +149,7 @@ export async function chat(userPhone: string, userMessage: string): Promise<stri
   const updatedHistory = await chatSession.getHistory();
   conversations.set(userPhone, updatedHistory as ConversationEntry[]);
 
-  return assistantMessage;
+  return { response: assistantMessage, toolResults: allToolResults };
 }
 
 export function clearConversation(userPhone: string): void {

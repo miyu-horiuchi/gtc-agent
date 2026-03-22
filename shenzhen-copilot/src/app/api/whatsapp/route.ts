@@ -26,11 +26,11 @@ export async function POST(request: NextRequest) {
     console.log(`Message from ${from}: ${body}`);
 
     // Get response from agent
-    const response = await chat(from, body);
+    const result = await chat(from, body);
 
     // Send reply via Twilio
     await getTwilioClient().messages.create({
-      body: response,
+      body: result.response,
       from: to, // The Twilio WhatsApp number
       to: from,
     });
